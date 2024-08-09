@@ -257,6 +257,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         config['clickerUser']['lastSyncUpdate']
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
+    bestPP = None
     upgrade = None
     cooldown = 0
     for u in upgrades:
@@ -264,11 +265,14 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             print(f'Skip {u.section} / {u.name} - not available')
             continue
 
+        if bestPP is None:
+            bestPP = u.pp
+
         cd = getCooldownToBalance(config, u.price)
         if u.cooldown > deltaTime:
             cd = max(cd, u.cooldown - deltaTime)
 
-        if upgrade is None or cooldown > 0 and cd * 1.5 < cooldown and u.pp < upgrade.pp * 1.5:
+        if upgrade is None or cooldown > 0 and cd * 1.5 < cooldown and u.pp < bestPP * 1.5:
             upgrade = u
             cooldown = cd
         else:
