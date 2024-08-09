@@ -290,6 +290,17 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
     tasks.add(delay, recur)
 
+    # ping every 3 hours to resume income
+    maxIdle = 60 * 60 * 3  # 3 hours
+
+    def forceSync():
+        updateConfig(config, post('sync'))
+
+    keepAlive = 0
+    while delay - keepAlive > maxIdle:
+        keepAlive += maxIdle
+        tasks.add(keepAlive, forceSync)
+
 
 def main():
     config = loadConfig()
