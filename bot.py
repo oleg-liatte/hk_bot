@@ -64,10 +64,10 @@ class Tasks:
     def __init__(self):
         self.tasks = []
 
-    def add(self, delay: float, task: Callable[[], Any]):
+    def add(self, delay: float, name: str, task: Callable[[], Any]):
         now = datetime.now().timestamp()
         timePoint = now + delay
-        item = (timePoint, task)
+        item = (timePoint, name, task)
         ip = bisect_right(self.tasks, item, key=lambda x: x[0])
         self.tasks.insert(ip, item)
 
@@ -76,23 +76,25 @@ class Tasks:
             if len(self.tasks) == 0:
                 break
 
-            timePoint, task = self.tasks.pop(0)
+            timePoint, name, task = self.tasks.pop(0)
 
             delta = timePoint - datetime.now().timestamp()
             if sys.stdout.isatty():
                 rate = 0.1
                 while True:
                     d = timePoint - datetime.now().timestamp()
-                    print(f'\rWaiting {formatTime(d)} / {formatTime(delta)}\033[K', end='')
+                    print(f'\rWaiting {formatTime(d)}'
+                          f' / {formatTime(delta)}'
+                          f': {name}\033[K', end='')
                     if d > rate:
                         time.sleep(rate)
                     else:
-                        print(f'\rWaiting {formatTime(delta)}\033[K')
+                        print(f'\rWaiting {formatTime(delta)}: {name}\033[K')
                         time.sleep(d)
                         break
             else:
                 if delta > 0:
-                    print(f'Waiting {formatTime(delta)}')
+                    print(f'Waiting {formatTime(delta)}: {name}')
                     time.sleep(delta)
 
             task()
@@ -288,7 +290,12 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         buy(upgrade, config)
         scheduleBuy(config, tasks)
 
-    tasks.add(delay, recur)
+    tasks.add(delay,
+              f'Buy {upgrade.section} / {upgrade.name}'
+              f' for {formatCoins(upgrade.price)} coins'
+              f', +{formatCoins(upgrade.pph)} per hour'
+              f', pp = {upgrade.pp:.2f}h',
+              recur)
 
     # ping every 3 hours to resume income
     maxIdle = 60 * 60 * 3  # 3 hours
@@ -299,7 +306,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     keepAlive = 0
     while delay - keepAlive > maxIdle:
         keepAlive += maxIdle
-        tasks.add(keepAlive, forceSync)
+        tasks.add(keepAlive, 'keep alive', forceSync)
 
 
 def main():
