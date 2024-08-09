@@ -11,6 +11,7 @@ from collections import namedtuple
 from typing import Any, List, Dict, Callable, TypeVar
 from bisect import bisect_right
 import random
+from pprint import pformat
 
 # http.client.HTTPConnection.debuglevel = 1
 
@@ -195,7 +196,13 @@ def post(request: str, body: Dict | None = None) -> Dict:
 
     response = requests.post(url=url, json=body, headers=headers)
 
-    return json.loads(response.content)
+    r = json.loads(response.content)
+
+    if response.status_code != 200:
+        raise Exception(f'Request failed with code {response.status_code}:\n'
+                        f'{pformat(r)}')
+
+    return r
 
 
 def reportState(config: Dict):
