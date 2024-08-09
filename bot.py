@@ -290,9 +290,8 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         scheduleBuy(config, tasks)
 
     tasks.add(delay,
-              f'Buy {upgrade.section} / {upgrade.name}'
-              f' for {formatCoins(upgrade.price)} coins'
-              f', +{formatCoins(upgrade.pph)} per hour'
+              f'buy {upgrade.name}'
+              f' for {formatCoins(upgrade.price)}'
               f', pp = {upgrade.pp:.2f}h',
               recur)
 
