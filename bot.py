@@ -67,9 +67,8 @@ class Tasks:
     def add(self, delay: float, name: str, task: Callable[[], Any]):
         now = datetime.now().timestamp()
         timePoint = now + delay
-        item = (timePoint, name, task)
-        ip = bisect_right(self.tasks, item, key=lambda x: x[0])
-        self.tasks.insert(ip, item)
+        ip = bisect_right(self.tasks, timePoint, key=lambda x: x[0])
+        self.tasks.insert(ip, (timePoint, name, task))
 
     def exec(self):
         while True:
