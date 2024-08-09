@@ -233,7 +233,7 @@ def buy(upgrade: Upgrade, config: Dict):
 
 
 def rndDelay() -> float:
-    return 3 + 5 * random.random()
+    return 5 + 55 * random.random()
 
 
 def getCooldownToBalance(config: Dict, balance: float) -> float:
