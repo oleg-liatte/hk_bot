@@ -80,8 +80,7 @@ class Tasks:
                 rate = 0.1
                 while True:
                     d = timePoint - datetime.now().timestamp()
-                    print(f'\rWaiting {
-                          formatTime(d)} / {formatTime(delta)}\033[K', end='')
+                    print(f'\rWaiting {formatTime(d)} / {formatTime(delta)}\033[K', end='')
                     if d > rate:
                         time.sleep(rate)
                     else:

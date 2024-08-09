@@ -1,4 +1,5 @@
 import json
+import os
 from collections import namedtuple
 from typing import List, Dict
 
@@ -21,8 +22,8 @@ def is_available(u: Upgrade):
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # with open('test') as f:
-with open('upgradesForBuy') as f:
-    upgrades = json.load(f)
+with open(os.path.expanduser('~/.hk_bot.json')) as f:
+    upgrades = json.load(f)['upgradesForBuy']
     for u in upgrades:
         if u['isExpired']:
             continue
