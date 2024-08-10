@@ -42,7 +42,7 @@ def formatCoins(n: float) -> str:
 
 
 def formatTime(t: float) -> str:
-    f = f'{t % 60:04.1f}'
+    f = f'{t % 60:02.0f}'
     t = int(t // 60)
     if t == 0:
         return f
@@ -79,7 +79,7 @@ class Tasks:
 
             delta = timePoint - datetime.now().timestamp()
             if sys.stdout.isatty():
-                rate = 0.1
+                rate = 10
                 while True:
                     d = timePoint - datetime.now().timestamp()
                     print(f'\rWaiting {formatTime(d)}'
@@ -89,7 +89,8 @@ class Tasks:
                         time.sleep(rate)
                     else:
                         print(f'\rWaiting {formatTime(delta)}: {name}\033[K')
-                        time.sleep(d)
+                        if d > 0:
+                            time.sleep(d)
                         break
             else:
                 if delta > 0:
