@@ -42,6 +42,8 @@ def formatCoins(n: float) -> str:
 
 
 def formatTime(t: float) -> str:
+    t = int(t + 0.5)
+
     f = f'{t % 60:02.0f}'
     t = int(t // 60)
     if t == 0:
@@ -255,6 +257,10 @@ def getCooldownToBalance(config: Dict, balance: float) -> float:
 
 
 def scheduleBuy(config: Dict, tasks: Tasks):
+    # ping every 3 hours to resume income
+    maxIdle = 60 * 60 * 3  # 3 hours
+    minPP = 1000
+
     deltaTime = datetime.now().timestamp() - \
         config['clickerUser']['lastSyncUpdate']
 
@@ -274,14 +280,20 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         if u.cooldown > deltaTime:
             cd = max(cd, u.cooldown - deltaTime)
 
-        if upgrade is None or cooldown > 0 and cd * 1.5 < cooldown and u.pp < bestPP * 1.5:
+        if u.pp < minPP and upgrade is None or cooldown > 0 and cd * 1.5 < cooldown and u.pp < bestPP * 1.5:
             upgrade = u
             cooldown = cd
         else:
             break
 
+    def forceSync():
+        updateConfig(config, post('sync'))
+        updateConfig(config, post('upgrades-for-buy'))
+        reportState(config)
+        scheduleBuy(config, tasks)
+
     if upgrade is None:
-        print('No available upgrades')
+        tasks.add(maxIdle, 'idle', forceSync)
         return
 
     delay = cooldown + rndDelay()
@@ -290,22 +302,14 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         buy(upgrade, config)
         scheduleBuy(config, tasks)
 
-    tasks.add(delay,
-              f'buy {upgrade.name}'
-              f' for {formatCoins(upgrade.price)}'
-              f', pp = {upgrade.pp:.2f}h',
-              recur)
-
-    # ping every 3 hours to resume income
-    maxIdle = 60 * 60 * 3  # 3 hours
-
-    def forceSync():
-        updateConfig(config, post('sync'))
-
-    keepAlive = 0
-    while delay - keepAlive > maxIdle:
-        keepAlive += maxIdle
-        tasks.add(keepAlive, 'keep alive', forceSync)
+    if delay < maxIdle:
+        tasks.add(delay,
+                  f'buy {upgrade.name}'
+                  f' for {formatCoins(upgrade.price)}'
+                  f', pp = {upgrade.pp:.2f}h',
+                  recur)
+    else:
+        tasks.add(maxIdle, 'keep alive', forceSync)
 
 
 def main():
