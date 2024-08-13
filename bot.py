@@ -309,7 +309,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
                   f', pp = {upgrade.pp:.2f}h',
                   recur)
     else:
-        tasks.add(maxIdle, 'keep alive', forceSync)
+        tasks.add(maxIdle + rndDelay(), 'keep alive', forceSync)
 
 
 def main():
