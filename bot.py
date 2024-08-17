@@ -294,7 +294,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         scheduleBuy(config, tasks)
 
     if upgrade is None:
-        tasks.add(maxIdle + rndDelay(), 'idle', forceSync)
+        tasks.add(timeToSync - now + rndDelay(), 'idle', forceSync)
         return
 
     delay = cooldown + rndDelay()
