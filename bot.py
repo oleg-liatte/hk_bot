@@ -19,6 +19,7 @@ from pprint import pformat
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
+minPP = 1500
 
 
 def formatCoins(n: float) -> str:
@@ -259,7 +260,6 @@ def getCooldownToBalance(config: Dict, balance: float) -> float:
 def scheduleBuy(config: Dict, tasks: Tasks):
     # ping every 3 hours to resume income
     maxIdle = 60 * 60 * 3  # 3 hours
-    minPP = 1000
 
     deltaTime = datetime.now().timestamp() - \
         config['clickerUser']['lastSyncUpdate']
