@@ -240,29 +240,26 @@ def rndDelay() -> float:
     return 5 + 55 * random.random()
 
 
-def getCooldownToBalance(config: Dict, balance: float) -> float:
+def getTimeOfBalance(config: Dict, balance: float) -> float:
     clickerUser = config['clickerUser']
     coins = clickerUser['balanceCoins']
     lastSyncUpdate = clickerUser['lastSyncUpdate']
     earnPassivePerHour = clickerUser['earnPassivePerHour']
 
-    now = datetime.now().timestamp()
     deltaCoins = balance - coins
     deltaCoins *= 1.1
 
-    t = lastSyncUpdate + 3600 * deltaCoins / earnPassivePerHour
-    if t < now:
-        return 0
-
-    return t - now
+    return lastSyncUpdate + 3600 * deltaCoins / earnPassivePerHour
 
 
 def scheduleBuy(config: Dict, tasks: Tasks):
     # ping every 3 hours to resume income
     maxIdle = 60 * 60 * 3  # 3 hours
 
-    deltaTime = datetime.now().timestamp() - \
-        config['clickerUser']['lastSyncUpdate']
+    now = datetime.now().timestamp()
+    lastSyncUpdate = config['clickerUser']['lastSyncUpdate']
+    deltaTime = now - lastSyncUpdate
+    timeToSync = lastSyncUpdate + maxIdle
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
     bestPP = None
@@ -276,7 +273,11 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         if bestPP is None:
             bestPP = u.pp
 
-        cd = getCooldownToBalance(config, u.price)
+        cd = 0
+        timeOfBalance = getTimeOfBalance(config, u.price)
+        if timeOfBalance > now:
+            cd = timeOfBalance - now
+
         if u.cooldown > deltaTime:
             cd = max(cd, u.cooldown - deltaTime)
 
@@ -302,14 +303,14 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         buy(upgrade, config)
         scheduleBuy(config, tasks)
 
-    if delay < maxIdle:
+    if now + delay <= timeToSync:
         tasks.add(delay,
                   f'buy {upgrade.name}'
                   f' for {formatCoins(upgrade.price)}'
                   f', pp = {upgrade.pp:.2f}h',
                   recur)
     else:
-        tasks.add(maxIdle + rndDelay(), 'keep alive', forceSync)
+        tasks.add(timeToSync - now + rndDelay(), 'keep alive', forceSync)
 
 
 def main():
