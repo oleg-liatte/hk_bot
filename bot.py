@@ -19,7 +19,7 @@ from pprint import pformat
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
-minPP = 1800
+minPP = float('inf')
 
 
 def formatCoins(n: float) -> str:
