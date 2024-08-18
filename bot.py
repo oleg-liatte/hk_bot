@@ -19,7 +19,7 @@ from pprint import pformat
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
-minPP = 1500
+minPP = 1650
 
 
 def formatCoins(n: float) -> str:
@@ -82,12 +82,17 @@ class Tasks:
 
             delta = timePoint - datetime.now().timestamp()
             if sys.stdout.isatty():
-                rate = 10
                 while True:
                     d = timePoint - datetime.now().timestamp()
                     print(f'\rWaiting {formatTime(d)}'
                           f' / {formatTime(delta)}'
                           f': {name}\033[K', end='')
+
+                    if d > 60:
+                        rate = 60
+                    else:
+                        rate = 1
+
                     if d > rate:
                         time.sleep(rate)
                     else:
