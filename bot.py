@@ -232,11 +232,6 @@ def buy(upgrade: Upgrade, config: Dict):
         }
     )
 
-    print(f'Buy {upgrade.section} / {upgrade.name}'
-          f' for {formatCoins(upgrade.price)} coins'
-          f', +{formatCoins(upgrade.pph)} per hour'
-          f', pp = {upgrade.pp:.2f}h')
-
     updateConfig(config, response)
     reportState(config)
 
@@ -296,20 +291,21 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         tasks.add(timeToSync - now + rndDelay(), 'idle', forceSync)
         return
 
-    delay = cooldown + rndDelay()
-
     def recur():
         buy(upgrade, config)
         scheduleBuy(config, tasks)
 
-    if now + delay <= timeToSync:
-        tasks.add(delay,
-                  f'buy {upgrade.name}'
-                  f' for {formatCoins(upgrade.price)}'
-                  f', pp = {upgrade.pp:.2f}h',
-                  recur)
+    keepAliveDelay = max(0, timeToSync - now)
+
+    print(f'{'Wait' if keepAliveDelay < cooldown else 'Prepare'} to buy {upgrade.section} / {upgrade.name}'
+          f' for {formatCoins(upgrade.price)} coins'
+          f', +{formatCoins(upgrade.pph)} per hour'
+          f', pp = {upgrade.pp:.2f}h')
+
+    if keepAliveDelay < cooldown:
+        tasks.add(keepAliveDelay + rndDelay(), 'keep alive', forceSync)
     else:
-        tasks.add(timeToSync - now + rndDelay(), 'keep alive', forceSync)
+        tasks.add(cooldown + rndDelay(), 'buy', recur)
 
 
 def main():
