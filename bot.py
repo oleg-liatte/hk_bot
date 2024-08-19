@@ -269,13 +269,16 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             print(f'Skip {u.section} / {u.name} - not available')
             continue
 
+        if maxPP is not None and u.pp > maxPP:
+            break
+
         cd = max((
             0,
             getTimeOfBalance(config, u.price) - now,
             u.cooldown - deltaTime
         ))
 
-        if (upgrade is None and (maxPP is None or u.pp < maxPP)) or cd < cooldown:
+        if upgrade is None or cd < cooldown:
             upgrade = u
             cooldown = cd
         else:
