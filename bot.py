@@ -19,7 +19,7 @@ from pprint import pformat
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
-minPP = float('inf')
+maxPP = 2000
 
 
 def formatCoins(n: float) -> str:
@@ -267,7 +267,6 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     timeToSync = lastSyncUpdate + maxIdle
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
-    bestPP = None
     upgrade = None
     cooldown = 0
     for u in upgrades:
@@ -275,18 +274,13 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             print(f'Skip {u.section} / {u.name} - not available')
             continue
 
-        if bestPP is None:
-            bestPP = u.pp
+        cd = max((
+            0,
+            getTimeOfBalance(config, u.price) - now,
+            u.cooldown - deltaTime
+        ))
 
-        cd = 0
-        timeOfBalance = getTimeOfBalance(config, u.price)
-        if timeOfBalance > now:
-            cd = timeOfBalance - now
-
-        if u.cooldown > deltaTime:
-            cd = max(cd, u.cooldown - deltaTime)
-
-        if u.pp < minPP and upgrade is None or cooldown > 0 and cd * 1.5 < cooldown and u.pp < bestPP * 1.5:
+        if (upgrade is None and (maxPP is None or u.pp < maxPP)) or cd < cooldown:
             upgrade = u
             cooldown = cd
         else:
