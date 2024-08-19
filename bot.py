@@ -297,7 +297,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
     keepAliveDelay = max(0, timeToSync - now)
 
-    print(f'{'Wait' if keepAliveDelay < cooldown else 'Prepare'} to buy {upgrade.section} / {upgrade.name}'
+    print(f'{"Wait" if keepAliveDelay < cooldown else "Prepare"} to buy {upgrade.section} / {upgrade.name}'
           f' for {formatCoins(upgrade.price)} coins'
           f', +{formatCoins(upgrade.pph)} per hour'
           f', pp = {upgrade.pp:.2f}h')
