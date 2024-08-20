@@ -13,6 +13,27 @@ Upgrade = namedtuple(
 all_upgrades: Dict[str, Upgrade] = {}
 
 
+def formatTime(t: float) -> str:
+    t = int(t + 0.5)
+
+    f = f'{t % 60:02.0f}'
+    t = int(t // 60)
+    if t == 0:
+        return f
+
+    f = f'{t % 60:02d}:' + f
+    t = t // 60
+    if t == 0:
+        return f
+
+    f = f'{t % 24}:' + f
+    t = t // 24
+    if t == 0:
+        return f
+
+    return f'{t}d ' + f
+
+
 def is_available(u: Upgrade):
     while u is not None:
         if u.condition is None:
@@ -71,5 +92,5 @@ sorted.sort(key=lambda u: u.pp)
 
 for u in sorted[:20]:
     condition = '* ' if not u.available else ''
-    cd = f" (cd: {u.cooldown}s)" if u.cooldown > 0 else ""
+    cd = f" (cd: {formatTime(u.cooldown)})" if u.cooldown > 0 else ""
     print(f"{condition}{u.section} / {u.name} : {u.pp:.2f}h{cd}")
