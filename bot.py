@@ -266,7 +266,9 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
         so = maxPP is not None and u.pp > maxPP
         deltaCoins = u.price - balanceCoins
-        deltaCoins *= 1.1 + so * minBalance
+        deltaCoins *= 1.1
+        if so:
+            deltaCoins += minBalance
 
         timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
 
