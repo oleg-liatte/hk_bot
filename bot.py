@@ -219,7 +219,16 @@ def post(request: str, body: Dict | None = None) -> Dict:
 
 def reportState(config: Dict):
     clickerUser = config['clickerUser']
-    print(f'Balance: {formatCoins(clickerUser["balanceCoins"])}'
+    balanceCoins = clickerUser["balanceCoins"]
+    earnPassivePerSec = clickerUser['earnPassivePerSec']
+    lastSyncUpdate = clickerUser['lastSyncUpdate']
+    now = datetime.now().timestamp()
+
+    balance = balanceCoins
+    if now > lastSyncUpdate:
+        balance += earnPassivePerSec * (now - lastSyncUpdate)
+
+    print(f'Balance: {formatCoins(balance)}'
           f', +{formatCoins(clickerUser["earnPassivePerHour"])}/h')
 
 
