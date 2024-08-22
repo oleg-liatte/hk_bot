@@ -279,8 +279,6 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         ))
 
         if upgrade is None or (not secondOrder and cd < cooldown):
-            print(
-                f'-- consider {u.name} for {formatCoins(u.price)}, pp = {u.pp:.2f}h, {"second" if so else "first"} order')
             upgrade = u
             cooldown = cd
             secondOrder = so
