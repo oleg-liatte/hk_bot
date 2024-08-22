@@ -220,7 +220,7 @@ def post(request: str, body: Dict | None = None) -> Dict:
 def reportState(config: Dict):
     clickerUser = config['clickerUser']
     print(f'Balance: {formatCoins(clickerUser["balanceCoins"])}'
-          f', +{formatCoins(clickerUser["earnPassivePerHour"])} per hour')
+          f', +{formatCoins(clickerUser["earnPassivePerHour"])}/h')
 
 
 def buy(upgrade: Upgrade, config: Dict):
@@ -301,8 +301,8 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     keepAliveDelay = max(0, timeToSync - now)
 
     print(f'{"Wait" if keepAliveDelay < cooldown else "Prepare"} to buy {upgrade.section} / {upgrade.name}'
-          f' for {formatCoins(upgrade.price)} coins'
-          f', +{formatCoins(upgrade.pph)} per hour'
+          f' for {formatCoins(upgrade.price)}'
+          f', +{formatCoins(upgrade.pph)}/h'
           f', pp = {upgrade.pp:.2f}h')
 
     if keepAliveDelay < cooldown:
