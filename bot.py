@@ -20,6 +20,7 @@ from pprint import pformat
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
 maxPP = 2000
+minBalance = 50_000_000
 
 
 def formatCoins(n: float) -> str:
@@ -129,7 +130,8 @@ def saveConfig(config: Dict):
 
 
 def updateConfig(config: Dict, patch: Dict):
-    config.update(patch)
+    for k, v in patch.items():
+        config[k] = v
     saveConfig(config)
 
 
@@ -204,8 +206,6 @@ def post(request: str, body: Dict | None = None) -> Dict:
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
     }
 
-    print(f'POST {request}')
-
     response = requests.post(url=url, json=body, headers=headers)
 
     r = json.loads(response.content)
@@ -224,6 +224,7 @@ def reportState(config: Dict):
 
 
 def buy(upgrade: Upgrade, config: Dict):
+    print(f'Buy {upgrade.name}')
     response = post(
         'buy-upgrade',
         {
@@ -240,25 +241,18 @@ def rndDelay() -> float:
     return 5 + 55 * random.random()
 
 
-def getTimeOfBalance(config: Dict, balance: float) -> float:
-    clickerUser = config['clickerUser']
-    coins = clickerUser['balanceCoins']
-    lastSyncUpdate = clickerUser['lastSyncUpdate']
-    earnPassivePerHour = clickerUser['earnPassivePerHour']
-
-    deltaCoins = balance - coins
-    deltaCoins *= 1.1
-
-    return lastSyncUpdate + 3600 * deltaCoins / earnPassivePerHour
-
-
 def scheduleBuy(config: Dict, tasks: Tasks):
     # ping every 3 hours to resume income
     maxIdle = 60 * 60 * 3  # 3 hours
 
+    clickerUser = config['clickerUser']
+    balanceCoins = clickerUser['balanceCoins']
+    lastSyncUpdate = clickerUser['lastSyncUpdate']
+    earnPassivePerHour = clickerUser['earnPassivePerHour']
+    earnPassivePerSec = clickerUser['earnPassivePerSec']
+
     now = datetime.now().timestamp()
-    lastSyncUpdate = config['clickerUser']['lastSyncUpdate']
-    deltaTime = now - lastSyncUpdate
+    timeAfterSync = now - lastSyncUpdate
     timeToSync = lastSyncUpdate + maxIdle
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
@@ -269,22 +263,26 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             print(f'Skip {u.section} / {u.name} - not available')
             continue
 
-        if maxPP is not None and u.pp > maxPP:
-            break
+        secondOrder = maxPP is not None and u.pp > maxPP
+        deltaCoins = u.price - balanceCoins
+        deltaCoins *= 1.1 + secondOrder * minBalance
+
+        timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
 
         cd = max((
             0,
-            getTimeOfBalance(config, u.price) - now,
-            u.cooldown - deltaTime
+            timeOfBalance - now,
+            u.cooldown - timeAfterSync
         ))
 
-        if upgrade is None or cd < cooldown:
+        if upgrade is None or (not secondOrder and cd < cooldown):
             upgrade = u
             cooldown = cd
         else:
             break
 
     def forceSync():
+        print('Sync')
         updateConfig(config, post('sync'))
         updateConfig(config, post('upgrades-for-buy'))
         reportState(config)
