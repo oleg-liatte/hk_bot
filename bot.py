@@ -20,7 +20,7 @@ from pprint import pformat
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
 maxPP = 2000
-minBalance = 50_000_000
+minBalance = 100_000_000
 
 
 def formatCoins(n: float) -> str:
