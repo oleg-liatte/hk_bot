@@ -258,14 +258,15 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     upgrades = sortUpgrades(config['upgradesForBuy'])
     upgrade = None
     cooldown = 0
+    secondOrder = False
     for u in upgrades:
         if not u.available:
             print(f'Skip {u.section} / {u.name} - not available')
             continue
 
-        secondOrder = maxPP is not None and u.pp > maxPP
+        so = maxPP is not None and u.pp > maxPP
         deltaCoins = u.price - balanceCoins
-        deltaCoins *= 1.1 + secondOrder * minBalance
+        deltaCoins *= 1.1 + so * minBalance
 
         timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
 
@@ -278,6 +279,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         if upgrade is None or (not secondOrder and cd < cooldown):
             upgrade = u
             cooldown = cd
+            secondOrder = so
         else:
             break
 
