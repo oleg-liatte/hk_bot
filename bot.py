@@ -21,6 +21,7 @@ from pprint import pformat
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
 maxPP = 2000
 minBalance = 100_000_000
+safetyDelay = 60
 
 
 def formatCoins(n: float) -> str:
@@ -275,11 +276,11 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
         so = maxPP is not None and u.pp > maxPP
         deltaCoins = u.price - balanceCoins
-        deltaCoins *= 1.1
         if so:
             deltaCoins += minBalance
 
         timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
+        timeOfBalance += safetyDelay
 
         cd = max((
             0,
