@@ -262,7 +262,6 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     earnPassivePerSec = clickerUser['earnPassivePerSec']
 
     now = datetime.now().timestamp()
-    timeAfterSync = now - lastSyncUpdate
     timeToSync = lastSyncUpdate + maxIdle
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
@@ -285,7 +284,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         cd = max((
             0,
             timeOfBalance - now,
-            u.cooldown - timeAfterSync
+            lastSyncUpdate + u.cooldown - now
         ))
 
         if upgrade is None or (not secondOrder and cd < cooldown):
