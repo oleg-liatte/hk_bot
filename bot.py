@@ -19,6 +19,12 @@ from pprint import pformat
 
 # /sync|buy-upgrade|upgrades-for-buy/
 # clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
+
+# pph = profit per hour
+# pp = payback period
+Upgrade = namedtuple(
+    'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition', 'expiresAt'])
+
 maxPP = 2000
 minBalance = 200_000_000
 safetyDelay = 60
@@ -136,12 +142,6 @@ def updateConfig(config: Dict, patch: Dict):
     saveConfig(config)
 
 
-# pph = profit per hour
-# pp = payback period
-Upgrade = namedtuple(
-    'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition'])
-
-
 def is_available(u: Upgrade, all_upgrades: Dict[str, Upgrade]):
     while u is not None:
         if u.condition is None:
@@ -187,8 +187,14 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
         available = u['isAvailable']
         id = u['id']
 
+        expiresAt = None
+        try:
+            expiresAt = datetime.fromisoformat(u['expiresAt']).timestamp()
+        except KeyError:
+            pass
+
         all_upgrades[id] = Upgrade(
-            id, u['name'], u['section'], cooldown, price, pph, pp, available, condition)
+            id, u['name'], u['section'], cooldown, price, pph, pp, available, condition, expiresAt)
 
     sorted: List[Upgrade] = []
     for id, u in all_upgrades.items():
@@ -264,10 +270,13 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     now = datetime.now().timestamp()
     timeToSync = lastSyncUpdate + maxIdle
 
+    savedDelay = rndDelay()
+
     upgrades = sortUpgrades(config['upgradesForBuy'])
     upgrade = None
     cooldown = 0
     secondOrder = False
+    delay = None
     for u in upgrades:
         if not u.available:
             print(f'Skip {u.section} / {u.name} - not available')
@@ -281,16 +290,28 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
         timeOfBalance += safetyDelay
 
-        cd = max((
-            0,
-            timeOfBalance - now,
-            lastSyncUpdate + u.cooldown - now
+        timeToBuy = max((
+            now,
+            timeOfBalance,
+            lastSyncUpdate + u.cooldown
         ))
+
+        d = savedDelay
+        if u.expiresAt is not None:
+            if timeToBuy > u.expiresAt:
+                print(f'Skip {u.section} / {u.name} - expired')
+                continue
+
+            maxDelay = max(0, u.expiresAt - timeToBuy - 5)
+            d = min(d, maxDelay)
+
+        cd = timeToBuy - now
 
         if upgrade is None or (not secondOrder and cd < cooldown):
             upgrade = u
             cooldown = cd
             secondOrder = so
+            delay = d
         else:
             break
 
@@ -302,7 +323,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         scheduleBuy(config, tasks)
 
     if upgrade is None:
-        tasks.add(timeToSync - now + rndDelay(), 'idle', forceSync)
+        tasks.add(timeToSync - now + savedDelay, 'idle', forceSync)
         return
 
     def recur():
@@ -317,18 +338,20 @@ def scheduleBuy(config: Dict, tasks: Tasks):
           f', pp = {upgrade.pp:.2f}h')
 
     if keepAliveDelay < cooldown:
-        tasks.add(keepAliveDelay + rndDelay(), 'keep alive', forceSync)
+        tasks.add(keepAliveDelay + delay, 'keep alive', forceSync)
     else:
-        tasks.add(cooldown + rndDelay(), 'buy', recur)
+        tasks.add(cooldown + delay, 'buy', recur)
 
 
 def main():
     config = loadConfig()
 
     if 'clickerUser' not in config:
+        print('Initial sync')
         updateConfig(config, post('sync'))
 
     if 'upgradesForBuy' not in config:
+        print('Initial upgrades-for-buy')
         updateConfig(config, post('upgrades-for-buy'))
 
     reportState(config)
