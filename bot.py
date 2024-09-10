@@ -26,7 +26,7 @@ Upgrade = namedtuple(
     'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition', 'expiresAt'])
 
 maxPP = 2000
-minBalance = 200_000_000
+minBalance = 500_000_000
 safetyDelay = 60
 
 
