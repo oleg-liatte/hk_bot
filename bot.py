@@ -25,7 +25,7 @@ from pprint import pformat
 Upgrade = namedtuple(
     'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition', 'expiresAt'])
 
-maxPP = 2000
+maxPP = 4000
 minBalance = 500_000_000
 safetyDelay = 60
 
