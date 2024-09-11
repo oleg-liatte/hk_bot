@@ -253,8 +253,8 @@ def buy(upgrade: Upgrade, config: Dict):
     reportState(config)
 
 
-def rndDelay() -> float:
-    return 5 + 55 * random.random()
+def randomizeDelay(delay: float) -> float:
+    return 3 + min(3600, max(5, delay)) / 60 * random.random()
 
 
 def scheduleBuy(config: Dict, tasks: Tasks):
@@ -269,8 +269,6 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
     now = datetime.now().timestamp()
     timeToSync = lastSyncUpdate + maxIdle
-
-    savedDelay = rndDelay()
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
     upgrade = None
@@ -296,7 +294,8 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             lastSyncUpdate + u.cooldown
         ))
 
-        d = savedDelay
+        cd = timeToBuy - now
+        d = randomizeDelay(cd)
         if u.expiresAt is not None:
             if timeToBuy > u.expiresAt:
                 print(f'Skip {u.section} / {u.name} - expired')
@@ -304,8 +303,6 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
             maxDelay = max(0, u.expiresAt - timeToBuy - 5)
             d = min(d, maxDelay)
-
-        cd = timeToBuy - now
 
         if upgrade is None or (not secondOrder and cd < cooldown):
             upgrade = u
@@ -323,7 +320,8 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         scheduleBuy(config, tasks)
 
     if upgrade is None:
-        tasks.add(timeToSync - now + savedDelay, 'idle', forceSync)
+        tasks.add(timeToSync - now +
+                  randomizeDelay(timeToSync - now), 'idle', forceSync)
         return
 
     def recur():
