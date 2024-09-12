@@ -254,7 +254,7 @@ def buy(upgrade: Upgrade, config: Dict):
 
 
 def randomizeDelay(delay: float) -> float:
-    return 3 + min(3600, max(5, delay)) / 60 * random.random()
+    return 3 + min(3600, max(180, delay)) / 60 * random.random()
 
 
 def scheduleBuy(config: Dict, tasks: Tasks):
