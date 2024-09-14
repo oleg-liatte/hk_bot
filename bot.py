@@ -308,7 +308,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             maxDelay = max(0, u.expiresAt - timeToBuy - 5)
             d = min(d, maxDelay)
 
-        if upgrade is None or (not secondOrder and cd < cooldown):
+        if upgrade is None or (not so and cd < cooldown):
             upgrade = u
             cooldown = cd
             secondOrder = so
