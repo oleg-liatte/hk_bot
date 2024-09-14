@@ -215,7 +215,11 @@ def post(request: str, body: Dict | None = None) -> Dict:
 
     response = requests.post(url=url, json=body, headers=headers)
 
-    r = json.loads(response.content)
+    try:
+        r = json.loads(response.content)
+    except:
+        print(f'Response: {response.content}')
+        raise
 
     if response.status_code != 200:
         raise Exception(f'Request failed with code {response.status_code}:\n'
