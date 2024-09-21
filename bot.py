@@ -249,11 +249,18 @@ def listUpgrades(config: Dict, maxItems: int = 20):
     upgrades = sortUpgrades(config['upgradesForBuy'])
     if maxItems is not None and maxItems > 0:
         upgrades = upgrades[:maxItems]
+
+    interludeUser = config['interludeUser']
+    lastSyncUpdate = interludeUser['lastSyncUpdate']
+    now = datetime.now().timestamp()
+    timePassed = now - lastSyncUpdate
+
     for u in upgrades:
-        condition = '* ' if not u.available else ''
-        cd = f" (cd: {formatTime(u.cooldown)})" if u.cooldown > 0 else ""
-        print(f"{condition}{u.pp:.2f}h"
-              f": {u.section} / {u.name} for {humanNumber(u.price)}{cd}")
+        s_condition = '* ' if not u.available else ''
+        cd = max(0, u.cooldown - timePassed)
+        s_cd = f" (cd: {formatTime(cd)})" if cd > 0 else ""
+        print(f"{s_condition}{u.pp:.2f}h"
+              f": {u.section} / {u.name} for {humanNumber(u.price)}{s_cd}")
 
 
 def buy(upgrade: Upgrade, config: Dict):
