@@ -18,7 +18,7 @@ from pprint import pformat
 # http.client.HTTPConnection.debuglevel = 1
 
 # /sync|buy-upgrade|upgrades-for-buy/
-# clickerUser.lastSyncUpdate ~ int(datetime.now().timestamp())
+# interludeUser.lastSyncUpdate ~ int(datetime.now().timestamp())
 
 # pph = profit per hour
 # pp = payback period
@@ -30,7 +30,7 @@ minBalance = 500_000_000
 safetyDelay = 60
 
 
-def formatCoins(n: float) -> str:
+def humanNumber(n: float) -> str:
     if n < 1000:
         return f'{n:.2f}'
 
@@ -176,8 +176,8 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
         except KeyError:
             pass
 
-        price = int(u['price'])
-        pph = int(u['profitPerHourDelta'])
+        price = u['price']
+        pph = u['profitPerHourDelta']
 
         if pph != 0:
             pp = price / pph
@@ -207,7 +207,7 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
 
 
 def post(request: str, body: Dict | None = None) -> Dict:
-    url = 'https://api.hamsterkombatgame.io/clicker/' + request
+    url = 'https://api.hamsterkombatgame.io/interlude/' + request
     headers = {
         'authorization': os.environ['HK_AUTH'],
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
@@ -229,18 +229,18 @@ def post(request: str, body: Dict | None = None) -> Dict:
 
 
 def reportState(config: Dict):
-    clickerUser = config['clickerUser']
-    balanceCoins = clickerUser["balanceCoins"]
-    earnPassivePerSec = clickerUser['earnPassivePerSec']
-    lastSyncUpdate = clickerUser['lastSyncUpdate']
+    interludeUser = config['interludeUser']
+    balanceDiamonds = interludeUser["balanceDiamonds"]
+    earnPassivePerSec = interludeUser['earnPassivePerSec']
+    lastSyncUpdate = interludeUser['lastSyncUpdate']
     now = datetime.now().timestamp()
 
-    balance = balanceCoins
+    balance = balanceDiamonds
     if now > lastSyncUpdate:
         balance += earnPassivePerSec * (now - lastSyncUpdate)
 
-    print(f'Balance: {formatCoins(balance)}'
-          f', +{formatCoins(clickerUser["earnPassivePerHour"])}/h')
+    print(f'Balance: {humanNumber(balance)}'
+          f', +{humanNumber(interludeUser["earnPassivePerHour"])}/h')
 
 
 def buy(upgrade: Upgrade, config: Dict):
@@ -265,11 +265,11 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     # ping every 3 hours to resume income
     maxIdle = 60 * 60 * 3  # 3 hours
 
-    clickerUser = config['clickerUser']
-    balanceCoins = clickerUser['balanceCoins']
-    lastSyncUpdate = clickerUser['lastSyncUpdate']
-    earnPassivePerHour = clickerUser['earnPassivePerHour']
-    earnPassivePerSec = clickerUser['earnPassivePerSec']
+    interludeUser = config['interludeUser']
+    balanceDiamonds = interludeUser['balanceDiamonds']
+    lastSyncUpdate = interludeUser['lastSyncUpdate']
+    earnPassivePerHour = interludeUser['earnPassivePerHour']
+    earnPassivePerSec = interludeUser['earnPassivePerSec']
 
     now = datetime.now().timestamp()
     timeToSync = lastSyncUpdate + maxIdle
@@ -285,7 +285,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
             continue
 
         so = maxPP is not None and u.pp > maxPP
-        deltaCoins = u.price - balanceCoins
+        deltaCoins = u.price - balanceDiamonds
         if so:
             deltaCoins += minBalance
 
@@ -335,8 +335,8 @@ def scheduleBuy(config: Dict, tasks: Tasks):
     keepAliveDelay = max(0, timeToSync - now)
 
     print(f'{"Wait" if keepAliveDelay < cooldown else "Prepare"} to buy {upgrade.section} / {upgrade.name}'
-          f' for {formatCoins(upgrade.price)}'
-          f', +{formatCoins(upgrade.pph)}/h'
+          f' for {humanNumber(upgrade.price)}'
+          f', +{humanNumber(upgrade.pph)}/h'
           f', pp = {upgrade.pp:.2f}h')
 
     if keepAliveDelay < cooldown:
@@ -348,7 +348,7 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 def main():
     config = loadConfig()
 
-    if 'clickerUser' not in config:
+    if 'interludeUser' not in config:
         print('Initial sync')
         updateConfig(config, post('sync'))
 

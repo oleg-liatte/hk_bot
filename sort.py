@@ -69,8 +69,8 @@ with open(os.path.expanduser('~/.hk_bot.json')) as f:
         except KeyError:
             pass
 
-        price = int(u['price'])
-        pph = int(u['profitPerHourDelta'])
+        price = u['price']
+        pph = u['profitPerHourDelta']
 
         if pph != 0:
             pp = price / pph
