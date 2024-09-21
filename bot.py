@@ -14,6 +14,7 @@ from typing import Any, List, Dict, Callable, TypeVar
 from bisect import bisect_right
 import random
 from pprint import pformat
+import argparse
 
 # http.client.HTTPConnection.debuglevel = 1
 
@@ -25,8 +26,8 @@ from pprint import pformat
 Upgrade = namedtuple(
     'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition', 'expiresAt'])
 
-maxPP = 4000
-minBalance = 500_000_000
+maxPP = 1000
+minBalance = 5
 safetyDelay = 60
 
 
@@ -243,6 +244,18 @@ def reportState(config: Dict):
           f', +{humanNumber(interludeUser["earnPassivePerHour"])}/h')
 
 
+def listUpgrades(config: Dict, maxItems: int = 20):
+    reportState(config)
+    upgrades = sortUpgrades(config['upgradesForBuy'])
+    if maxItems is not None and maxItems > 0:
+        upgrades = upgrades[:maxItems]
+    for u in upgrades:
+        condition = '* ' if not u.available else ''
+        cd = f" (cd: {formatTime(u.cooldown)})" if u.cooldown > 0 else ""
+        print(f"{condition}{u.pp:.2f}h"
+              f": {u.section} / {u.name} for {humanNumber(u.price)}{cd}")
+
+
 def buy(upgrade: Upgrade, config: Dict):
     print(f'Buy {upgrade.name}')
     response = post(
@@ -346,15 +359,27 @@ def scheduleBuy(config: Dict, tasks: Tasks):
 
 
 def main():
-    config = loadConfig()
+    parser = argparse.ArgumentParser(prog='bot')
+    parser.add_argument('-c', '--clear', action='store_true',
+                        help='ignore saved state')
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='list upgrades')
 
-    if 'interludeUser' not in config:
+    args = parser.parse_args()
+
+    if not args.clear:
+        config = loadConfig()
+    else:
+        config = {}
+
+    if 'interludeUser' not in config or 'upgradesForBuy' not in config:
         print('Initial sync')
         updateConfig(config, post('sync'))
-
-    if 'upgradesForBuy' not in config:
-        print('Initial upgrades-for-buy')
         updateConfig(config, post('upgrades-for-buy'))
+
+    if args.list:
+        listUpgrades(config)
+        return
 
     reportState(config)
 
