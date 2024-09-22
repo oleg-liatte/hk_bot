@@ -186,6 +186,15 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
             pp = float('inf')
 
         available = u['isAvailable']
+
+        try:
+            maxLevel = u['maxLevel']
+            level = u['level']
+            if level > maxLevel:
+                available = False
+        except KeyError:
+            pass
+
         id = u['id']
 
         expiresAt = None
