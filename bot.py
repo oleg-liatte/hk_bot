@@ -156,8 +156,21 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
     all_upgrades: Dict[str, Upgrade] = {}
 
     for u in upgradesForBuy:
+        # filter upgrade
         if u['isExpired']:
             continue
+
+        id = u['id']
+
+        if 'maxLevel' in u:
+            maxLevel = u['maxLevel']
+            try:
+                level = u['level']
+            except KeyError:
+                print(f"Can't figure out level for {id}, falling back to upgrades")
+                level = upgradesForBuy['interludeUser']['upgrades'][id]['level'] + 1
+            if level > maxLevel:
+                continue
 
         condition = None
         try:
@@ -171,12 +184,14 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
         except KeyError:
             pass
 
+        # cooldown
         cooldown = 0
         try:
             cooldown = int(u['cooldownSeconds'])
         except KeyError:
             pass
 
+        # price and payback period
         price = u['price']
         pph = u['profitPerHourDelta']
 
@@ -185,17 +200,8 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
         else:
             pp = float('inf')
 
+        # other
         available = u['isAvailable']
-
-        try:
-            maxLevel = u['maxLevel']
-            level = u['level']
-            if level > maxLevel:
-                available = False
-        except KeyError:
-            pass
-
-        id = u['id']
 
         expiresAt = None
         try:
