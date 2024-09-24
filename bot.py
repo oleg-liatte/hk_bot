@@ -306,7 +306,8 @@ def chooseUpgrade(config: Dict, upgrades: List[Upgrade], quiet: bool = False) ->
             upgrade = u
             timeToBuy = ttb
             balance -= u.price
-        elif balance < 0:
+
+        if balance < 0 or timeToBuy <= now:
             break
 
     return upgrade, timeToBuy
@@ -317,7 +318,7 @@ def listUpgrades(config: Dict, maxItems: int = 20):
     reportState(config)
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
-    upgrade, timeToBuy = chooseUpgrade(config, upgrades, False)
+    upgrade, timeToBuy = chooseUpgrade(config, upgrades, quiet=True)
     if maxItems is not None and maxItems > 0:
         upgrades = upgrades[:maxItems]
 
