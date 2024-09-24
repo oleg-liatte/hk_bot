@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 import json
 from collections import namedtuple
-from typing import Any, List, Dict, Callable, TypeVar
+from typing import Any, List, Dict, Callable, TypeVar, Tuple
 from bisect import bisect_right
 import random
 from pprint import pformat
@@ -28,7 +28,7 @@ Upgrade = namedtuple(
 
 maxPP = 1000
 minBalance = 5
-safetyDelay = 60
+maxIdle = 60 * 60 * 3  # ping every 3 hours to resume income
 
 
 def humanNumber(n: float) -> str:
@@ -76,9 +76,7 @@ class Tasks:
     def __init__(self):
         self.tasks = []
 
-    def add(self, delay: float, name: str, task: Callable[[], Any]):
-        now = datetime.now().timestamp()
-        timePoint = now + delay
+    def add(self, timePoint: float, name: str, task: Callable[[], Any]):
         ip = bisect_right(self.tasks, timePoint, key=lambda x: x[0])
         self.tasks.insert(ip, (timePoint, name, task))
 
@@ -89,10 +87,11 @@ class Tasks:
 
             timePoint, name, task = self.tasks.pop(0)
 
-            delta = timePoint - datetime.now().timestamp()
+            now = datetime.now().timestamp()
+            delta = timePoint - now
             if sys.stdout.isatty():
-                while True:
-                    d = timePoint - datetime.now().timestamp()
+                while timePoint > now:
+                    d = timePoint - now
                     print(f'\rWaiting {formatTime(d)}'
                           f' / {formatTime(delta)}'
                           f': {name}\033[K', end='')
@@ -104,10 +103,10 @@ class Tasks:
 
                     if d > rate:
                         time.sleep(rate)
+                        now = datetime.now().timestamp()
                     else:
                         print(f'\rWaiting {formatTime(delta)}: {name}\033[K')
-                        if d > 0:
-                            time.sleep(d)
+                        time.sleep(d)
                         break
             else:
                 if delta > 0:
@@ -141,6 +140,36 @@ def updateConfig(config: Dict, patch: Dict):
     for k, v in patch.items():
         config[k] = v
     saveConfig(config)
+
+
+def post(request: str, body: Dict | None = None) -> Dict:
+    url = 'https://api.hamsterkombatgame.io/interlude/' + request
+    headers = {
+        'authorization': os.environ['HK_AUTH'],
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+    }
+
+    response = requests.post(url=url, json=body, headers=headers)
+
+    try:
+        r = json.loads(response.content)
+    except:
+        print(f'Response: {response.content}')
+        raise
+
+    if response.status_code != 200:
+        raise Exception(f'Request failed with code {response.status_code}:\n'
+                        f'{pformat(r)}')
+
+    return r
+
+
+def randomizeTime(timePoint: float, maxTimePoint: float | None) -> float:
+    now = datetime.now().timestamp()
+    delay = 3 + max(180, min(timePoint - now, 3600)) / 60 * random.random()
+    if maxTimePoint is not None:
+        delay = min(delay, max(0, maxTimePoint - timePoint - 5))
+    return timePoint + delay
 
 
 def is_available(u: Upgrade, all_upgrades: Dict[str, Upgrade]):
@@ -222,60 +251,98 @@ def sortUpgrades(upgradesForBuy: List[Dict]) -> List[Upgrade]:
     return sorted
 
 
-def post(request: str, body: Dict | None = None) -> Dict:
-    url = 'https://api.hamsterkombatgame.io/interlude/' + request
-    headers = {
-        'authorization': os.environ['HK_AUTH'],
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-    }
-
-    response = requests.post(url=url, json=body, headers=headers)
-
-    try:
-        r = json.loads(response.content)
-    except:
-        print(f'Response: {response.content}')
-        raise
-
-    if response.status_code != 200:
-        raise Exception(f'Request failed with code {response.status_code}:\n'
-                        f'{pformat(r)}')
-
-    return r
-
-
 def reportState(config: Dict):
-    interludeUser = config['interludeUser']
-    balanceDiamonds = interludeUser["balanceDiamonds"]
-    earnPassivePerSec = interludeUser['earnPassivePerSec']
-    lastSyncUpdate = interludeUser['lastSyncUpdate']
+    user = config['interludeUser']
+    balance = user["balanceDiamonds"]
+    earnPassivePerSec = user['earnPassivePerSec']
+    lastSyncUpdate = user['lastSyncUpdate']
     now = datetime.now().timestamp()
 
-    balance = balanceDiamonds
+    balance = balance
     if now > lastSyncUpdate:
         balance += earnPassivePerSec * (now - lastSyncUpdate)
 
     print(f'Balance: {humanNumber(balance)}'
-          f', +{humanNumber(interludeUser["earnPassivePerHour"])}/h')
+          f', +{humanNumber(user["earnPassivePerHour"])}/h')
+
+
+def chooseUpgrade(config: Dict, upgrades: List[Upgrade], quiet: bool = False) -> Tuple[Upgrade | None, float]:
+    user = config['interludeUser']
+    balance = user['balanceDiamonds']
+    lastSyncUpdate = user['lastSyncUpdate']
+    earnPassivePerSec = user['earnPassivePerSec']
+
+    now = datetime.now().timestamp()
+
+    upgrades = sortUpgrades(config['upgradesForBuy'])
+    upgrade = None
+    timeToBuy = 0
+    for u in upgrades:
+        if not u.available:
+            if not quiet:
+                print(f'Skip {u.section} / {u.name} - not available')
+            continue
+
+        so = maxPP is not None and u.pp > maxPP  # second order
+        deltaCoins = u.price - balance
+        if so:
+            deltaCoins += minBalance
+
+        tob = lastSyncUpdate + deltaCoins / earnPassivePerSec  # time of balance
+
+        ttb = max((
+            now,
+            tob,
+            lastSyncUpdate + u.cooldown
+        ))
+
+        if u.expiresAt is not None:
+            if ttb > u.expiresAt:
+                if not quiet:
+                    print(f'Skip {u.section} / {u.name} - expired')
+                continue
+
+        if upgrade is None or ttb < timeToBuy:
+            upgrade = u
+            timeToBuy = ttb
+            balance -= u.price
+        elif balance < 0:
+            break
+
+    return upgrade, timeToBuy
+
 
 
 def listUpgrades(config: Dict, maxItems: int = 20):
     reportState(config)
+
     upgrades = sortUpgrades(config['upgradesForBuy'])
+    upgrade, timeToBuy = chooseUpgrade(config, upgrades, False)
     if maxItems is not None and maxItems > 0:
         upgrades = upgrades[:maxItems]
 
-    interludeUser = config['interludeUser']
-    lastSyncUpdate = interludeUser['lastSyncUpdate']
+    user = config['interludeUser']
+    lastSyncUpdate = user['lastSyncUpdate']
     now = datetime.now().timestamp()
     timePassed = now - lastSyncUpdate
 
     for u in upgrades:
         s_condition = '* ' if not u.available else ''
+
         cd = max(0, u.cooldown - timePassed)
-        s_cd = f" (cd: {formatTime(cd)})" if cd > 0 else ""
+        s_cd = f' (cd: {formatTime(cd)})' if cd > 0 else ''
+
+        if u == upgrade:
+            s_cur = ' <- buy '
+            if timeToBuy > now:
+                s_cur += f'in {formatTime(timeToBuy - now)}'
+            else:
+                s_cur += 'now'
+        else:
+            s_cur = ''
+
         print(f"{s_condition}{u.pp:.2f}h"
-              f": {u.section} / {u.name} for {humanNumber(u.price)}{s_cd}")
+              f": {u.section} / {u.name} for {humanNumber(u.price)}{s_cd}{s_cur}")
 
 
 def buy(upgrade: Upgrade, config: Dict):
@@ -292,64 +359,14 @@ def buy(upgrade: Upgrade, config: Dict):
     reportState(config)
 
 
-def randomizeDelay(delay: float) -> float:
-    return 3 + min(3600, max(180, delay)) / 60 * random.random()
-
-
 def scheduleBuy(config: Dict, tasks: Tasks):
-    # ping every 3 hours to resume income
-    maxIdle = 60 * 60 * 3  # 3 hours
+    user = config['interludeUser']
+    lastSyncUpdate = user['lastSyncUpdate']
 
-    interludeUser = config['interludeUser']
-    balanceDiamonds = interludeUser['balanceDiamonds']
-    lastSyncUpdate = interludeUser['lastSyncUpdate']
-    earnPassivePerHour = interludeUser['earnPassivePerHour']
-    earnPassivePerSec = interludeUser['earnPassivePerSec']
-
-    now = datetime.now().timestamp()
     timeToSync = lastSyncUpdate + maxIdle
 
     upgrades = sortUpgrades(config['upgradesForBuy'])
-    upgrade = None
-    cooldown = 0
-    secondOrder = False
-    delay = None
-    for u in upgrades:
-        if not u.available:
-            print(f'Skip {u.section} / {u.name} - not available')
-            continue
-
-        so = maxPP is not None and u.pp > maxPP
-        deltaCoins = u.price - balanceDiamonds
-        if so:
-            deltaCoins += minBalance
-
-        timeOfBalance = lastSyncUpdate + deltaCoins / earnPassivePerSec
-        timeOfBalance += safetyDelay
-
-        timeToBuy = max((
-            now,
-            timeOfBalance,
-            lastSyncUpdate + u.cooldown
-        ))
-
-        cd = timeToBuy - now
-        d = randomizeDelay(cd)
-        if u.expiresAt is not None:
-            if timeToBuy > u.expiresAt:
-                print(f'Skip {u.section} / {u.name} - expired')
-                continue
-
-            maxDelay = max(0, u.expiresAt - timeToBuy - 5)
-            d = min(d, maxDelay)
-
-        if upgrade is None or (not so and cd < cooldown):
-            upgrade = u
-            cooldown = cd
-            secondOrder = so
-            delay = d
-        else:
-            break
+    upgrade, timeToBuy = chooseUpgrade(config, upgrades)
 
     def forceSync():
         print('Sync')
@@ -359,25 +376,22 @@ def scheduleBuy(config: Dict, tasks: Tasks):
         scheduleBuy(config, tasks)
 
     if upgrade is None:
-        tasks.add(timeToSync - now +
-                  randomizeDelay(timeToSync - now), 'idle', forceSync)
+        tasks.add(randomizeTime(timeToSync), 'idle', forceSync)
         return
 
     def recur():
         buy(upgrade, config)
         scheduleBuy(config, tasks)
 
-    keepAliveDelay = max(0, timeToSync - now)
-
-    print(f'{"Wait" if keepAliveDelay < cooldown else "Prepare"} to buy {upgrade.section} / {upgrade.name}'
+    print(f'{"Wait" if timeToSync < timeToBuy else "Prepare"} to buy {upgrade.section} / {upgrade.name}'
           f' for {humanNumber(upgrade.price)}'
           f', +{humanNumber(upgrade.pph)}/h'
           f', pp = {upgrade.pp:.2f}h')
 
-    if keepAliveDelay < cooldown:
-        tasks.add(keepAliveDelay + delay, 'keep alive', forceSync)
+    if timeToSync < timeToBuy:
+        tasks.add(randomizeTime(timeToSync), 'keep alive', forceSync)
     else:
-        tasks.add(cooldown + delay, 'buy', recur)
+        tasks.add(randomizeTime(timeToBuy, upgrade.expiresAt), 'buy', recur)
 
 
 def main():
