@@ -164,7 +164,7 @@ def post(request: str, body: Dict | None = None) -> Dict:
     return r
 
 
-def randomizeTime(timePoint: float, maxTimePoint: float | None) -> float:
+def randomizeTime(timePoint: float, maxTimePoint: float | None = None) -> float:
     now = datetime.now().timestamp()
     delay = 3 + max(180, min(timePoint - now, 3600)) / 60 * random.random()
     if maxTimePoint is not None:
