@@ -31,6 +31,10 @@ minBalance = 5
 maxIdle = 60 * 60 * 3  # ping every 3 hours to resume income
 
 
+def currentTime() -> float:
+    return datetime.now().timestamp()
+
+
 def humanNumber(n: float) -> str:
     if n < 1000:
         return f'{n:.2f}'
@@ -87,7 +91,7 @@ class Tasks:
 
             timePoint, name, task = self.tasks.pop(0)
 
-            now = datetime.now().timestamp()
+            now = currentTime()
             delta = timePoint - now
             if sys.stdout.isatty():
                 while timePoint > now:
@@ -103,7 +107,7 @@ class Tasks:
 
                     if d > rate:
                         time.sleep(rate)
-                        now = datetime.now().timestamp()
+                        now = currentTime()
                     else:
                         print(f'\rWaiting {formatTime(delta)}: {name}\033[K')
                         time.sleep(d)
@@ -165,7 +169,7 @@ def post(request: str, body: Dict | None = None) -> Dict:
 
 
 def randomizeTime(timePoint: float, maxTimePoint: float | None = None) -> float:
-    now = datetime.now().timestamp()
+    now = currentTime()
     delay = 3 + max(180, min(timePoint - now, 3600)) / 60 * random.random()
     if maxTimePoint is not None:
         delay = min(delay, max(0, maxTimePoint - timePoint - 5))
@@ -256,7 +260,7 @@ def reportState(config: Dict):
     balance = user["balanceDiamonds"]
     earnPassivePerSec = user['earnPassivePerSec']
     lastSyncUpdate = user['lastSyncUpdate']
-    now = datetime.now().timestamp()
+    now = currentTime()
 
     balance = balance
     if now > lastSyncUpdate:
@@ -272,9 +276,8 @@ def chooseUpgrade(config: Dict, upgrades: List[Upgrade], quiet: bool = False) ->
     lastSyncUpdate = user['lastSyncUpdate']
     earnPassivePerSec = user['earnPassivePerSec']
 
-    now = datetime.now().timestamp()
+    now = currentTime()
 
-    upgrades = sortUpgrades(config['upgradesForBuy'])
     upgrade = None
     timeToBuy = 0
     for u in upgrades:
@@ -305,9 +308,10 @@ def chooseUpgrade(config: Dict, upgrades: List[Upgrade], quiet: bool = False) ->
         if upgrade is None or ttb < timeToBuy:
             upgrade = u
             timeToBuy = ttb
-            balance -= u.price
 
-        if balance < 0 or timeToBuy <= now:
+        balance -= u.price
+
+        if timeToBuy <= now:
             break
 
     return upgrade, timeToBuy
@@ -324,7 +328,7 @@ def listUpgrades(config: Dict, maxItems: int = 20):
 
     user = config['interludeUser']
     lastSyncUpdate = user['lastSyncUpdate']
-    now = datetime.now().timestamp()
+    now = currentTime()
     timePassed = now - lastSyncUpdate
 
     for u in upgrades:
@@ -352,7 +356,7 @@ def buy(upgrade: Upgrade, config: Dict):
         'buy-upgrade',
         {
             'upgradeId': upgrade.id,
-            'timestamp': int(datetime.now().timestamp() * 1000)
+            'timestamp': int(currentTime() * 1000)
         }
     )
 
