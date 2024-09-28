@@ -15,6 +15,7 @@ from bisect import bisect_right
 import random
 from pprint import pformat
 import argparse
+import math
 
 # http.client.HTTPConnection.debuglevel = 1
 
@@ -26,8 +27,8 @@ import argparse
 Upgrade = namedtuple(
     'Upgrade', ['id', 'name', 'section', 'cooldown', 'price', 'pph', 'pp', 'available', 'condition', 'expiresAt'])
 
-maxPP = 1000
-minBalance = 5
+maxPP = 500
+minBalance = float('inf')
 maxIdle = 60 * 60 * 3  # ping every 3 hours to resume income
 
 
@@ -56,7 +57,10 @@ def humanNumber(n: float) -> str:
 
 
 def formatTime(t: float) -> str:
-    t = int(t + 0.5)
+    try:
+        t = int(t + 0.5)
+    except OverflowError:
+        return 'inf'
 
     f = f'{t % 60:02.0f}'
     t = int(t // 60)
@@ -339,7 +343,9 @@ def listUpgrades(config: Dict, maxItems: int = 20):
 
         if u == upgrade:
             s_cur = ' <- buy '
-            if timeToBuy > now:
+            if math.isinf(timeToBuy):
+                s_cur += 'never'
+            elif timeToBuy > now:
                 s_cur += f'in {formatTime(timeToBuy - now)}'
             else:
                 s_cur += 'now'
